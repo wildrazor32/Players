@@ -1,0 +1,46 @@
+import requests
+import xml.etree.ElementTree as ET
+
+# URL to the FS25 server web status (adjust port if different)
+SERVER_STATUS_URL = 'http://131.153.153.138:29010/settings.html?lang=en'
+# Your Discord webhook URL
+DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1376314628472049715/8qIAXiRPWWHl_9POvCk8FlsKACPrhMXhNRG51RKO0aJ1XTX0RAZ3DXttFStz7EVxWjM_'
+
+def get_player_list():
+    try:
+        response = requests.get(SERVER_STATUS_URL)
+        response.raise_for_status()
+        xml_root = ET.fromstring(response.content)
+
+        # Find the <players> node
+        players_node = xml_root.find('.//players')
+        players = []
+
+        if players_node is not None:
+            for player in players_node.findall('player'):
+                name = player.attrib.get('name', 'Unknown')
+                players.append(name)
+
+        return players
+    except Exception as e:
+        return f"Error fetching server data: {e}"
+
+def send_to_discord(players):
+    if isinstance(players, str):
+        # Error case
+        content = f"❌ Failed to fetch player data:\n{players}"
+    elif not players:
+        content = "🟡 Server is online, but no players are currently connected."
+    else:
+        player_list = '\n'.join(f"👤 {p}" for p in players)
+        content = f"✅ Current FS25 Players Online:\n{player_list}"
+
+    payload = {"content": content}
+    r = requests.post(DISCORD_WEBHOOK_URL, json=payload)
+
+    if r.status_code != 204:
+        print("Failed to send to Discord:", r.status_code, r.text)
+
+if __name__ == "__main__":
+    players = get_player_list()
+    send_to_discord(players)
